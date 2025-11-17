@@ -28,7 +28,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install robotframework robotframework-appiumlibrary robotframework-seleniumlibrary pyyaml
+          pip install "robotframework>=7,<8" "robotframework-appiumlibrary>=3.1,<4.0" "robotframework-seleniumlibrary>=6,<7" pyyaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -71,7 +71,7 @@ jobs:
             DEVICE=$(adb devices | awk 'NR==2 {print $1}')
             echo "Using device: $DEVICE"
             mkdir -p results
-            robot -v DEVICE_NAME:$DEVICE -d results --test "Abrir YouTube no Chrome (Android)" tests/mobile_open_youtube.robot
+            robot -v DEVICE_NAME:$DEVICE -d results tests/mobile_open_youtube.robot
 
       - name: Start Appium server
         run: |
@@ -84,26 +84,12 @@ jobs:
           mkdir -p results
           robot -v DEVICE_NAME:emulator-5554 -d results --test "Abrir YouTube no Chrome (Android)" tests/mobile_open_youtube.robot
 
-      - name: Collect video artifact
-        if: always()
-        run: |
-          mkdir -p collected
-          if [ -f artifacts/videos/mobile-youtube.mp4 ]; then cp artifacts/videos/mobile-youtube.mp4 collected/; fi
-          ls -R collected || true
-
       - name: Upload Robot Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: robot-results
           path: results
-
-      - name: Upload Mobile Video
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-video
-          path: collected
 
       - name: Upload Appium Log
         if: always()

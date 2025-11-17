@@ -128,8 +128,8 @@ O workflow `.github/workflows/robot-mobile-tests.yml`:
 - Provisiona SDK Android API 34 e cria AVD headless.
 - Inicia Appium server.
 - Executa somente o caso Chrome mobile: `Abrir YouTube no Chrome (Android)`.
-- Usa hooks de Suite para gravar tela com Appium (`Start Screen Recording` / `Stop Screen Recording`).
-- Salva vídeo em `artifacts/videos/mobile-youtube.mp4` e publica como artifact (`mobile-video`).
+- Gravação de tela feita dentro de cada teste (após abrir a sessão Appium).
+- Vídeo salvo como `results/video.mp4` e publicado junto de `robot-results`.
 
 Para rodar local similar (Linux/Mac):
 ```bash

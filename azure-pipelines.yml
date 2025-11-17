@@ -1,0 +1,98 @@
+trigger:
+  branches:
+    include:
+    - main
+
+pr:
+  branches:
+    include:
+    - main
+
+pool:
+  vmImage: 'macOS-latest'
+
+variables:
+  ANDROID_API_LEVEL: 34
+  ANDROID_TARGET: google_apis
+  ANDROID_ABI: x86_64
+  AVD_NAME: azureEmulator
+
+steps:
+- task: UsePythonVersion@0
+  displayName: 'Setup Python'
+  inputs:
+    versionSpec: '3.12'
+
+- script: |
+    python -m pip install --upgrade pip
+    pip install "robotframework>=7,<8" "robotframework-appiumlibrary>=3.1,<4.0" "robotframework-seleniumlibrary>=6,<7" pyyaml
+  displayName: 'Install Python dependencies'
+
+- task: NodeTool@0
+  displayName: 'Setup Node'
+  inputs:
+    versionSpec: '20'
+
+- script: |
+    npm install -g appium @appium/doctor
+    appium driver install uiautomator2
+    appium --version
+    appium driver list --installed
+  displayName: 'Install Appium & Driver'
+
+- script: |
+    echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+    $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-$(ANDROID_API_LEVEL)" "emulator" "system-images;android-$(ANDROID_API_LEVEL);$(ANDROID_TARGET);$(ANDROID_ABI)"
+  displayName: 'Install Android SDK components'
+
+- script: |
+    echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n $(AVD_NAME) -k "system-images;android-$(ANDROID_API_LEVEL);$(ANDROID_TARGET);$(ANDROID_ABI)" --force
+    $ANDROID_HOME/emulator/emulator -list-avds
+  displayName: 'Create AVD'
+
+- script: |
+    nohup $ANDROID_HOME/emulator/emulator -avd $(AVD_NAME) -no-window -no-audio -gpu swiftshader_indirect -no-boot-anim > emulator.log 2>&1 &
+    # Aguarda boot completar
+    for i in {1..60}; do
+      if $ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; then
+        echo "Boot completo"
+        break
+      fi
+      echo "Aguardando boot ($i)"
+      sleep 10
+    done
+    $ANDROID_HOME/platform-tools/adb devices
+    # Desativa animações
+    $ANDROID_HOME/platform-tools/adb shell settings put global window_animation_scale 0
+    $ANDROID_HOME/platform-tools/adb shell settings put global transition_animation_scale 0
+    $ANDROID_HOME/platform-tools/adb shell settings put global animator_duration_scale 0
+    # Garante Chrome disponível
+    $ANDROID_HOME/platform-tools/adb shell cmd package install-existing com.android.chrome || true
+  displayName: 'Start emulator and configure'
+
+- script: |
+    nohup appium --allow-insecure chromedriver_autodownload --relaxed-security --log-level info > appium.log 2>&1 &
+    sleep 5
+    lsof -i:4723 || true
+  displayName: 'Start Appium server'
+
+- script: |
+    DEVICE=$($ANDROID_HOME/platform-tools/adb devices | awk 'NR==2 {print $1}')
+    echo "Using device: $DEVICE"
+    mkdir -p results
+    robot -v DEVICE_NAME:$DEVICE -d results tests/mobile_open_youtube.robot
+  displayName: 'Run Robot tests'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Upload Robot Results'
+  condition: always()
+  inputs:
+    pathToPublish: 'results'
+    artifactName: 'robot-results'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Upload Appium Log'
+  condition: always()
+  inputs:
+    pathToPublish: 'appium.log'
+    artifactName: 'appium-log'
