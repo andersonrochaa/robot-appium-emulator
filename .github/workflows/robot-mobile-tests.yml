@@ -41,13 +41,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Appium & Drivers
+      - name: Install Appium & Driver
         run: |
           npm install -g appium @appium/doctor
           appium driver install uiautomator2
-          appium driver install chromedriver
           appium --version
-          appium driver list
+          appium driver list --installed
+          appium doctor --android || true
 
       - name: Install Android SDK tools
         run: |
@@ -77,6 +77,9 @@ jobs:
             echo "Aguardando boot ($i)"; sleep 10;
           done
           adb devices
+          # Garante que Chrome esteja presente
+          adb shell cmd package install-existing com.android.chrome || true
+          adb shell dumpsys package com.android.chrome | grep versionName || true
 
       - name: Start Appium server
         run: |
