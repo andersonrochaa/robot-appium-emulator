@@ -74,22 +74,53 @@ jobs:
 
       - name: Start emulator
         run: |
+          echo "Iniciando emulador em background..."
           nohup $ANDROID_HOME/emulator/emulator -avd $AVD_NAME -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim > emulator.log 2>&1 &
           echo $! > emulator.pid
-          $ANDROID_HOME/platform-tools/adb wait-for-device
-          for i in {1..40}; do
-            BOOT=$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed | tr -d '\r')
+          
+          echo "Reiniciando adb server..."
+          $ANDROID_HOME/platform-tools/adb kill-server || true
+          $ANDROID_HOME/platform-tools/adb start-server
+          
+          echo "Aguardando device (timeout 5min)..."
+          timeout 300 $ANDROID_HOME/platform-tools/adb wait-for-device || {
+            echo "ERRO: Device não apareceu em 5min"
+            echo "=== Últimas 100 linhas do emulator.log ==="
+            tail -n 100 emulator.log
+            echo "=== adb devices ==="
+            $ANDROID_HOME/platform-tools/adb devices
+            exit 1
+          }
+          
+          echo "Device detectado, aguardando boot completo..."
+          $ANDROID_HOME/platform-tools/adb devices
+          
+          for i in {1..30}; do
+            BOOT=$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
             if [ "$BOOT" = "1" ]; then
+              echo "Boot completo na iteração $i"
               break
             fi
-            echo "Aguardando boot ($i)"
-            sleep 5
+            echo "Aguardando boot ($i/30)..."
+            sleep 10
           done
+          
+          if [ "$BOOT" != "1" ]; then
+            echo "ERRO: Boot não completou em 5min"
+            echo "=== Últimas 150 linhas do emulator.log ==="
+            tail -n 150 emulator.log
+            echo "=== adb devices ==="
+            $ANDROID_HOME/platform-tools/adb devices
+            exit 1
+          fi
+          
+          echo "Configurando device..."
           $ANDROID_HOME/platform-tools/adb shell input keyevent 82 || true
           $ANDROID_HOME/platform-tools/adb shell settings put global window_animation_scale 0 || true
           $ANDROID_HOME/platform-tools/adb shell settings put global transition_animation_scale 0 || true
           $ANDROID_HOME/platform-tools/adb shell settings put global animator_duration_scale 0 || true
           $ANDROID_HOME/platform-tools/adb shell cmd package install-existing com.android.chrome || true
+          echo "Emulador pronto!"
 
       - name: Run Robot tests
         run: |
