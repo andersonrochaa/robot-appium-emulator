@@ -1,0 +1,9 @@
+# Variáveis para testes mobile Appium / YouTube
+APPIUM_SERVER: "http://localhost:4723/wd/hub"
+DEVICE_NAME: "emulator-5554"          # Ajuste conforme 'adb devices'
+PLATFORM_NAME: "Android"
+AUTOMATION_NAME: "UiAutomator2"
+YOUTUBE_PACKAGE: "com.google.android.youtube"
+YOUTUBE_ACTIVITY: "com.google.android.youtube.HomeActivity"  # Se falhar, tente ShellActivity
+YOUTUBE_URL: "https://www.youtube.com"
+NO_RESET: true
